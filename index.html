@@ -15,7 +15,6 @@
       --accent-soft: #eaf1ff;
       --warn: #9a6700;
       --warn-bg: #fff8db;
-      --ok: #047857;
       --shadow: 0 14px 36px rgba(15, 23, 42, 0.08);
       --radius: 18px;
     }
@@ -52,7 +51,7 @@
       color: var(--muted);
       font-size: 15px;
       line-height: 1.8;
-      max-width: 780px;
+      max-width: 820px;
     }
 
     main {
@@ -97,7 +96,8 @@
       background: #fff;
     }
 
-    input[type="text"]:focus {
+    input[type="text"]:focus,
+    textarea:focus {
       border-color: var(--accent);
       box-shadow: 0 0 0 4px var(--accent-soft);
     }
@@ -116,6 +116,13 @@
 
     button:hover {
       filter: brightness(0.97);
+    }
+
+    .secondary-button {
+      background: #eef2f7;
+      color: #344054;
+      min-height: 42px;
+      padding: 0 14px;
     }
 
     .controls {
@@ -156,13 +163,6 @@
       font-weight: 800;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 0.96fr 1.04fr;
-      gap: 18px;
-      align-items: start;
-    }
-
     .card {
       padding: 18px;
     }
@@ -170,6 +170,41 @@
     .card h2 {
       margin: 0 0 12px;
       font-size: 18px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .counter {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 260px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 15px;
+      line-height: 1.9;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 18px;
+      align-items: start;
     }
 
     .entry-head {
@@ -219,54 +254,6 @@
       line-height: 1.7;
     }
 
-    .tree {
-      list-style: none;
-      margin: 0;
-      padding-left: 0;
-    }
-
-    .tree ul {
-      list-style: none;
-      margin: 8px 0 0 18px;
-      padding: 0 0 0 13px;
-      border-left: 2px solid var(--line);
-    }
-
-    .node {
-      margin: 8px 0;
-    }
-
-    .node-card {
-      border: 1px solid var(--line);
-      background: #fff;
-      border-radius: 14px;
-      padding: 11px 12px;
-    }
-
-    .node-title {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
-      align-items: center;
-      margin-bottom: 4px;
-    }
-
-    .node-word {
-      font-weight: 900;
-      font-size: 16px;
-    }
-
-    .node-def {
-      color: #344054;
-      font-size: 14px;
-      line-height: 1.75;
-    }
-
-    .small {
-      font-size: 12px;
-      color: var(--muted);
-    }
-
     .tokens {
       display: flex;
       flex-wrap: wrap;
@@ -276,14 +263,21 @@
     .token {
       border: 1px solid var(--line);
       background: #fff;
+      color: var(--text);
       border-radius: 999px;
       padding: 7px 10px;
+      min-height: auto;
       font-size: 13px;
       cursor: pointer;
     }
 
     .token strong {
       font-size: 14px;
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--muted);
     }
 
     .empty,
@@ -307,14 +301,6 @@
       margin-top: 12px;
     }
 
-    .source-list {
-      margin: 10px 0 0;
-      padding-left: 1.2em;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.8;
-    }
-
     footer {
       max-width: 1080px;
       margin: 0 auto;
@@ -325,20 +311,14 @@
     }
 
     @media (max-width: 820px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
-
-      .input-row {
+      .grid,
+      .input-row,
+      .controls {
         grid-template-columns: 1fr;
       }
 
       button {
         width: 100%;
-      }
-
-      .controls {
-        grid-template-columns: 1fr;
       }
 
       .range-box {
@@ -352,8 +332,8 @@
   <header>
     <h1 class="title">ことば分解辞書 MVP</h1>
     <p class="subtitle">
-      入力された語や短文を、辞書登録された語義に基づいて細かく分解します。
-      現在は試作版なので、特に「右」を細かく説明するための小さな自作辞書を内蔵しています。
+      入力語を、語義の構成要素までたどって、最後の句点が1つだけの「めちゃくちゃ長ったらしい1文」として出力します。
+      それぞれの語の意味は常時展開せず、必要な情報を1文に圧縮します。
     </p>
   </header>
 
@@ -362,7 +342,7 @@
       <label for="query">調べたい語・文章</label>
       <div class="input-row">
         <input id="query" type="text" value="右" autocomplete="off" />
-        <button id="analyzeBtn">分解する</button>
+        <button id="analyzeBtn">長文1文を生成</button>
       </div>
 
       <div class="controls">
@@ -370,33 +350,38 @@
           例：<strong>右</strong> / <strong>東にあたる側</strong> / <strong>その人が北に向いていれば東にあたる側</strong>
         </div>
         <div class="range-box" aria-label="分解レベル">
-          <span class="small">浅い</span>
-          <input id="depth" type="range" min="0" max="6" value="5" />
-          <span class="small">深い</span>
+          <span class="small">短い</span>
+          <input id="depth" type="range" min="0" max="7" value="5" />
+          <span class="small">長い</span>
           <span id="depthValue" class="level-badge">5</span>
         </div>
       </div>
     </section>
 
+    <section class="panel card">
+      <div class="toolbar">
+        <h2>出力：長ったらしい1文</h2>
+        <div>
+          <span id="textCounter" class="counter">0字</span>
+          <button id="copyBtn" class="secondary-button">コピー</button>
+        </div>
+      </div>
+      <textarea id="longOutput" spellcheck="false"></textarea>
+      <div class="notice">
+        この出力欄では、途中に句点「。」を入れず、最後だけに句点を置きます。辞書に未登録の語がある場合は、既知語だけを拾って長文化します。
+      </div>
+    </section>
+
     <section class="grid">
       <article class="panel card">
-        <h2>見出し語の説明</h2>
+        <h2>見出し語の確認</h2>
         <div id="entryView"></div>
       </article>
 
       <article class="panel card">
-        <h2>意味の階層分解</h2>
-        <div id="treeView"></div>
+        <h2>拾った単語</h2>
+        <div id="tokensView"></div>
       </article>
-    </section>
-
-    <section class="panel card">
-      <h2>単語レベルの分解</h2>
-      <div id="tokensView"></div>
-      <div class="notice">
-        現段階ではブラウザだけで動く簡易版です。実用化する場合は、SudachiPy / MeCab などの形態素解析器と、
-        日本語WordNet・JMdict・自作辞書DBをサーバー側で接続するのが現実的です。
-      </div>
     </section>
   </main>
 
@@ -411,7 +396,7 @@
         pos: "名詞",
         definition: "基準となる人や物から見て、一定の向きを定めたときに一方に対応する側。人が北を向く場合には東にあたる側。",
         source: "custom",
-        parts: ["基準", "人", "物", "見る", "向き", "一方", "対応", "側", "北", "東"]
+        parts: ["基準", "人", "物", "見る", "向き", "一方", "対応", "側", "北", "東", "空間", "二分"]
       },
       "基準": {
         reading: "きじゅん",
@@ -590,6 +575,7 @@
       "地図": leaf("ちず", "名詞", "土地や場所の位置関係を平面に表したもの。"),
       "上": leaf("うえ", "名詞", "基準より高い、または画面・紙面で上方にある位置。"),
       "広がり": leaf("ひろがり", "名詞", "空間的・範囲的に広く続いていること。"),
+      "動く": leaf("うごく", "動詞", "位置や状態が変わる。"),
       "ない": leaf("ない", "形容詞", "存在しないこと。"),
       "あいている": leaf("あいている", "動詞", "中にものがなく、使える状態である。"),
       "ところ": leaf("ところ", "名詞", "場所・部分・場面を表す語。"),
@@ -631,8 +617,8 @@
       "向いて": "向く",
       "見える": "見る",
       "見た": "見る",
-      "あたる": "あたる",
       "当たる": "あたる",
+      "あたる": "あたる",
       "側": "側",
       "ところ": "ところ"
     };
@@ -641,6 +627,25 @@
 
     function normalizeWord(word) {
       return aliases[word] || word;
+    }
+
+    function sanitizeDefinition(text) {
+      return String(text)
+        .replace(/[。．.]+/g, "")
+        .replace(/\s+/g, "")
+        .replace(/、+/g, "、")
+        .replace(/であること$/g, "であるということ")
+        .trim();
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      }[m]));
     }
 
     function tokenize(text) {
@@ -682,29 +687,92 @@
         i += 1;
       }
 
-      return mergeParticles(result);
+      return result;
     }
 
-    function mergeParticles(tokens) {
-      const merged = [];
-      for (const token of tokens) {
-        if (particles.has(token.surface)) {
-          merged.push({ ...token, isParticle: true });
-        } else {
-          merged.push(token);
-        }
+    function collectConcepts(word, depth, seen = new Set(), rows = []) {
+      const lemma = normalizeWord(word);
+      const entry = dictionary[lemma];
+
+      if (!entry || seen.has(lemma)) {
+        return rows;
       }
-      return merged;
+
+      seen.add(lemma);
+      rows.push({
+        word: lemma,
+        reading: entry.reading,
+        pos: entry.pos,
+        definition: sanitizeDefinition(entry.definition),
+        depth
+      });
+
+      if (depth <= 0) {
+        return rows;
+      }
+
+      for (const part of entry.parts) {
+        collectConcepts(part, depth - 1, seen, rows);
+      }
+
+      return rows;
     }
 
-    function escapeHtml(str) {
-      return String(str).replace(/[&<>"']/g, (m) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-      }[m]));
+    function uniqueByWord(rows) {
+      const seen = new Set();
+      const out = [];
+      for (const row of rows) {
+        if (seen.has(row.word)) continue;
+        seen.add(row.word);
+        out.push(row);
+      }
+      return out;
+    }
+
+    function buildVeryLongOneSentence(input, depth) {
+      const normalized = normalizeWord(input.trim());
+      let roots = [];
+
+      if (dictionary[normalized]) {
+        roots = [normalized];
+      } else {
+        roots = tokenize(input)
+          .filter(t => t.known && !particles.has(t.surface))
+          .map(t => t.lemma);
+      }
+
+      roots = [...new Set(roots)];
+
+      if (!roots.length) {
+        const safeInput = input.trim() || "未入力";
+        return `${safeInput}とは、現在の簡易辞書にはまだ登録されていないため、語義の構成要素を十分にたどることはできないが、このツール上では今後その語を見出し語として登録し、読み、品詞、中核的な意味、その意味を構成する下位概念、さらにそれぞれの下位概念を構成する語を順に接続することで、単なる短い辞書的説明ではなく、語の意味をできるだけ細かく言語化した長い一文として出力する対象である。`;
+      }
+
+      const allRows = uniqueByWord(roots.flatMap(root => collectConcepts(root, depth)));
+      const rootEntries = roots.map(root => dictionary[root]).filter(Boolean);
+      const rootLabels = roots.map(root => `${root}（${dictionary[root].reading}）`).join("および");
+      const rootDefinitions = roots
+        .map(root => `${root}は${sanitizeDefinition(dictionary[root].definition)}という意味を持つ語`)
+        .join("であり、また");
+
+      const conceptPhrase = allRows
+        .slice(1)
+        .map((row, index) => {
+          const connector = index === 0 ? "まず" : index % 5 === 0 ? "さらに" : index % 3 === 0 ? "また" : "加えて";
+          return `${connector}「${row.word}」という${row.pos}は「${row.definition}」という要素としてこの説明に含まれ`;
+        })
+        .join("、");
+
+      const relationPhrase = allRows
+        .filter(row => row.word !== roots[0])
+        .slice(0, Math.max(10, depth * 12))
+        .map(row => `「${row.word}」`)
+        .join("、");
+
+      const finalText =
+        `${rootLabels}とは、${rootDefinitions}であり、これを極限まで細かく説明しようとすると、単に短く意味を述べるだけでは不十分で、語の意味を成立させる前提、基準、認識、方向、位置、関係、区別、対象、存在、身体、感覚、空間、分割、対応といった複数の概念を一つずつ接続して理解する必要があり、${conceptPhrase || "この語はこれ以上細かい下位語を現在の辞書内には持たないが"}、つまりこの語は${relationPhrase || "登録済みの下位概念"}のような構成要素を経由してはじめて意味の輪郭が明確になるものであり、特に「右」の場合には、それは空間内に最初から絶対的に固定されている単独の場所ではなく、ある人や物や視点を基準として、その基準がどちらを向いているか、その向きに対してどちらの側を一方として区別するか、北を向いた人にとって東がどの側に現れるか、物を見る主体がどのように空間を二分するかという関係の束によって定まる相対的な側を表す語である`;
+
+      return finalText.replace(/[。．.]/g, "") + "。";
     }
 
     function renderEntry(word) {
@@ -714,8 +782,8 @@
       if (!entry) {
         return `
           <div class="empty">
-            <strong>${escapeHtml(word || "未入力")}</strong> は、まだ辞書に登録されていません。<br>
-            下の「単語レベルの分解」で既知語を拾える場合があります。
+            <strong>${escapeHtml(word || "未入力")}</strong> は、まだ見出し語として直接登録されていません。<br>
+            文章内に既知語があれば、それを拾って長文化します。
           </div>
         `;
       }
@@ -728,58 +796,8 @@
         </div>
         <div class="definition">${escapeHtml(entry.definition)}</div>
         <div class="meta">
-          source: ${escapeHtml(entry.source)} / 分解語数: ${entry.parts.length}
+          source: ${escapeHtml(entry.source)} / 下位語数: ${entry.parts.length}
         </div>
-        <ul class="source-list">
-          <li>この語義はMVP用の自作データです。</li>
-          <li>将来的には、語義DB・形態素解析・用例DBを分離できます。</li>
-        </ul>
-      `;
-    }
-
-    function renderTree(word, depth, seen = new Set()) {
-      const lemma = normalizeWord(word);
-      const entry = dictionary[lemma];
-
-      if (!entry) {
-        return `
-          <li class="node">
-            <div class="node-card">
-              <div class="node-title">
-                <span class="node-word">${escapeHtml(lemma)}</span>
-                <span class="tag">未登録</span>
-              </div>
-              <div class="node-def">辞書に語義がありません。</div>
-            </div>
-          </li>
-        `;
-      }
-
-      const repeated = seen.has(lemma);
-      const nextSeen = new Set(seen);
-      nextSeen.add(lemma);
-
-      const children = (!repeated && depth > 0 && entry.parts.length)
-        ? `<ul>${entry.parts.map(part => renderTree(part, depth - 1, nextSeen)).join("")}</ul>`
-        : "";
-
-      const stopReason = repeated
-        ? `<div class="small">※ 循環を防ぐため、同じ語の再分解を停止しました。</div>`
-        : "";
-
-      return `
-        <li class="node">
-          <div class="node-card">
-            <div class="node-title">
-              <span class="node-word">${escapeHtml(lemma)}</span>
-              <span class="small">[${escapeHtml(entry.reading)}]</span>
-              <span class="tag">${escapeHtml(entry.pos)}</span>
-            </div>
-            <div class="node-def">${escapeHtml(entry.definition)}</div>
-            ${stopReason}
-          </div>
-          ${children}
-        </li>
       `;
     }
 
@@ -811,26 +829,17 @@
       document.getElementById("depthValue").textContent = depth;
 
       const normalized = normalizeWord(input);
-      const directEntry = dictionary[normalized];
+      const tokens = tokenize(input);
+      const firstKnown = dictionary[normalized] ? { lemma: normalized } : tokens.find(t => t.known);
 
-      if (directEntry) {
-        document.getElementById("entryView").innerHTML = renderEntry(normalized);
-        document.getElementById("treeView").innerHTML = `<ul class="tree">${renderTree(normalized, depth)}</ul>`;
-      } else {
-        const tokens = tokenize(input);
-        const firstKnown = tokens.find(t => t.known);
-        document.getElementById("entryView").innerHTML = renderEntry(firstKnown ? firstKnown.lemma : input);
+      document.getElementById("entryView").innerHTML = renderEntry(firstKnown ? firstKnown.lemma : input);
+      document.getElementById("tokensView").innerHTML = renderTokens(tokens);
 
-        if (firstKnown) {
-          document.getElementById("treeView").innerHTML =
-            `<ul class="tree">${tokens.filter(t => t.known).map(t => renderTree(t.lemma, depth)).join("")}</ul>`;
-        } else {
-          document.getElementById("treeView").innerHTML =
-            `<div class="empty">既知語を見つけられませんでした。辞書JSONに語を追加してください。</div>`;
-        }
-      }
+      const output = buildVeryLongOneSentence(input, depth);
+      const outputEl = document.getElementById("longOutput");
+      outputEl.value = output;
+      document.getElementById("textCounter").textContent = `${output.length}字`;
 
-      document.getElementById("tokensView").innerHTML = renderTokens(tokenize(input));
       attachTokenClicks();
     }
 
@@ -845,7 +854,20 @@
       });
     }
 
+    async function copyOutput() {
+      const text = document.getElementById("longOutput").value;
+      try {
+        await navigator.clipboard.writeText(text);
+        document.getElementById("copyBtn").textContent = "コピー済み";
+        setTimeout(() => document.getElementById("copyBtn").textContent = "コピー", 1200);
+      } catch {
+        document.getElementById("longOutput").select();
+        document.execCommand("copy");
+      }
+    }
+
     document.getElementById("analyzeBtn").addEventListener("click", analyze);
+    document.getElementById("copyBtn").addEventListener("click", copyOutput);
     document.getElementById("query").addEventListener("keydown", (e) => {
       if (e.key === "Enter") analyze();
     });
