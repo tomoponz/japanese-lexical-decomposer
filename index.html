@@ -51,7 +51,7 @@
       color: var(--muted);
       font-size: 15px;
       line-height: 1.8;
-      max-width: 860px;
+      max-width: 880px;
     }
 
     main {
@@ -207,7 +207,7 @@
 
     textarea {
       width: 100%;
-      min-height: 320px;
+      min-height: 360px;
       resize: vertical;
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -351,8 +351,8 @@
   <header>
     <h1 class="title">ことば分解辞書 MVP</h1>
     <p class="subtitle">
-      名詞を名詞で言い換え、その名詞をさらに名詞で言い換え続ける「擬似∞言い換え」モードを追加した試作版です。
-      本当に無限にするとブラウザが止まるので、最大深度・循環停止・文字数制限で制御します。
+      親の定義文の中に含まれる語を、その語の定義文でインライン置換していく試作版です。
+      「右とは、基準となる人や物から見て……」の「基準」「人」「物」をさらに長い説明へ置き換えることで、例のような極端に長い1文を生成します。
     </p>
   </header>
 
@@ -361,31 +361,31 @@
       <label for="query">調べたい語・文章</label>
       <div class="input-row">
         <input id="query" type="text" value="右" autocomplete="off" />
-        <button id="analyzeBtn">擬似∞言い換え</button>
+        <button id="analyzeBtn">インライン展開</button>
       </div>
 
       <div class="controls">
         <div class="hint">
-          例：<strong>右</strong> / <strong>空間</strong> / <strong>東にあたる側</strong> / <strong>その人が北に向いていれば東にあたる側</strong>
+          例：<strong>右</strong> / <strong>空間</strong> / <strong>東にあたる側</strong> / <strong>基準</strong>
         </div>
-        <div class="range-box" aria-label="言い換え深度">
+        <div class="range-box" aria-label="置換深度">
           <span class="small">浅い</span>
-          <input id="depth" type="range" min="0" max="9" value="6" />
-          <span class="small">擬似∞</span>
-          <span id="depthValue" class="level-badge">6</span>
+          <input id="depth" type="range" min="0" max="7" value="4" />
+          <span class="small">深い</span>
+          <span id="depthValue" class="level-badge">4</span>
         </div>
       </div>
 
       <div class="option-row">
-        <label><input id="nounOnly" type="checkbox" checked /> 名詞だけを優先して言い換える</label>
+        <label><input id="inlineMode" type="checkbox" checked /> 定義文の中に直接埋め込む</label>
         <label><input id="oneSentence" type="checkbox" checked /> 最後の句点1つだけにする</label>
-        <label><input id="showLoop" type="checkbox" checked /> 循環停止も文中に入れる</label>
+        <label><input id="allowVerbs" type="checkbox" checked /> 動詞的な語も置換する</label>
       </div>
     </section>
 
     <section class="panel card">
       <div class="toolbar">
-        <h2>出力：名詞の擬似∞言い換え</h2>
+        <h2>出力：定義文インライン置換</h2>
         <div>
           <span id="textCounter" class="counter">0字</span>
           <button id="copyBtn" class="secondary-button">コピー</button>
@@ -393,7 +393,8 @@
       </div>
       <textarea id="longOutput" spellcheck="false"></textarea>
       <div class="notice">
-        方向性としては「右とは、側であり、側とは部分であり、部分とは全体を構成する一部であり……」のように、名詞を別の名詞へ置き換え続ける出力です。
+        例のように「右とは、二つ以上のものを見て……根拠となる……存在や物の……から見て……」という方向へ寄せています。
+        語の境界はまだ簡易処理なので、不自然な接続は残ります。
       </div>
     </section>
 
@@ -416,331 +417,146 @@
 
   <script>
     const dictionary = {
-      "右": {
-        reading: "みぎ",
-        pos: "名詞",
-        definition: "基準となる人や物から見て、一定の向きを定めたときに一方に対応する側。人が北を向く場合には東にあたる側。",
-        source: "custom",
-        parts: ["側", "基準", "人", "物", "向き", "一方", "対応", "北", "東", "空間", "二分"],
-        nounParts: ["側", "基準", "人", "物", "向き", "一方", "対応", "北", "東", "空間", "二分"]
-      },
-      "基準": {
-        reading: "きじゅん",
-        pos: "名詞",
-        definition: "比べたり判断したりするときの出発点やよりどころ。",
-        source: "custom",
-        parts: ["比べる", "判断", "出発点", "よりどころ"],
-        nounParts: ["判断", "出発点", "よりどころ"]
-      },
-      "人": {
-        reading: "ひと",
-        pos: "名詞",
-        definition: "意識や身体をもち、考えたり行動したりする存在としての人間。",
-        source: "custom",
-        parts: ["意識", "身体", "考える", "行動", "存在", "人間"],
-        nounParts: ["意識", "身体", "行動", "存在", "人間"]
-      },
-      "物": {
-        reading: "もの",
-        pos: "名詞",
-        definition: "形や性質をもち、認識の対象になる存在。",
-        source: "custom",
-        parts: ["形", "性質", "認識", "対象", "存在"],
-        nounParts: ["形", "性質", "認識", "対象", "存在"]
-      },
-      "見る": {
-        reading: "みる",
-        pos: "動詞",
-        definition: "目などの感覚器官によって、対象の形・色・位置などをとらえる。",
-        source: "custom",
-        parts: ["目", "感覚器官", "対象", "形", "色", "位置", "とらえる"],
-        nounParts: ["目", "感覚器官", "対象", "形", "色", "位置"]
-      },
-      "向き": {
-        reading: "むき",
-        pos: "名詞",
-        definition: "あるものが面している方向。または、進む・見る・基準にする方向。",
-        source: "custom",
-        parts: ["面する", "方向", "進む", "見る", "基準"],
-        nounParts: ["方向", "基準"]
-      },
-      "一方": {
-        reading: "いっぽう",
-        pos: "名詞",
-        definition: "二つ以上に分けたもののうち、片側または一つの側。",
-        source: "custom",
-        parts: ["二つ", "分ける", "片側", "側"],
-        nounParts: ["二つ", "片側", "側"]
-      },
-      "対応": {
-        reading: "たいおう",
-        pos: "名詞",
-        definition: "二つのものが、一定の関係によって結び付いていること。",
-        source: "custom",
-        parts: ["二つ", "一定", "関係", "結び付く"],
-        nounParts: ["二つ", "関係"]
-      },
-      "側": {
-        reading: "がわ",
-        pos: "名詞",
-        definition: "あるものを基準にしたとき、区別される一方の部分・方向・立場。",
-        source: "custom",
-        parts: ["基準", "区別", "一方", "部分", "方向", "立場"],
-        nounParts: ["基準", "区別", "一方", "部分", "方向", "立場"]
-      },
-      "北": {
-        reading: "きた",
-        pos: "名詞",
-        definition: "方位の一つ。地図ではふつう上に置かれる方向で、東を右に置くときの基準方向になりやすい。",
-        source: "custom",
-        parts: ["方位", "地図", "上", "方向", "東", "右", "基準"],
-        nounParts: ["方位", "地図", "上", "方向", "東", "右", "基準"]
-      },
-      "東": {
-        reading: "ひがし",
-        pos: "名詞",
-        definition: "方位の一つ。北を上にしたとき、右側にあたる方向。",
-        source: "custom",
-        parts: ["方位", "北", "上", "右", "側", "方向"],
-        nounParts: ["方位", "北", "上", "右", "側", "方向"]
-      },
-      "空間": {
-        reading: "くうかん",
-        pos: "名詞",
-        definition: "物が存在したり動いたりできる広がり。物がない場合には、あいているところとして感じられる。",
-        source: "custom",
-        parts: ["物", "存在", "動く", "広がり", "ない", "あいている", "ところ"],
-        nounParts: ["物", "存在", "広がり", "ところ"]
-      },
-      "二分": {
-        reading: "にぶん",
-        pos: "名詞・サ変動詞",
-        definition: "一つのものを二つに分けること。",
-        source: "custom",
-        parts: ["一つ", "二つ", "分ける"],
-        nounParts: ["一つ", "二つ"]
-      },
-      "目": {
-        reading: "め",
-        pos: "名詞",
-        definition: "光を受け取り、形や色などを知るための身体器官。",
-        source: "custom",
-        parts: ["光", "受け取る", "形", "色", "知る", "身体器官"],
-        nounParts: ["光", "形", "色", "身体器官"]
-      },
-      "形": {
-        reading: "かたち",
-        pos: "名詞",
-        definition: "物の外側の輪郭やまとまりとしてとらえられる姿。",
-        source: "custom",
-        parts: ["物", "外側", "輪郭", "まとまり", "姿"],
-        nounParts: ["物", "外側", "輪郭", "まとまり", "姿"]
-      },
-      "具体的": {
-        reading: "ぐたいてき",
-        pos: "形容動詞",
-        definition: "抽象的ではなく、はっきりした形や内容をもっているさま。",
-        source: "custom",
-        parts: ["抽象的", "はっきり", "形", "内容"],
-        nounParts: ["形", "内容"]
-      },
-      "物体": {
-        reading: "ぶったい",
-        pos: "名詞",
-        definition: "空間の中にあり、形や大きさをもつもの。",
-        source: "custom",
-        parts: ["空間", "形", "大きさ", "物"],
-        nounParts: ["空間", "形", "大きさ", "物"]
-      },
-      "物質": {
-        reading: "ぶっしつ",
-        pos: "名詞",
-        definition: "物を成り立たせている材料や実体。",
-        source: "custom",
-        parts: ["物", "成り立つ", "材料", "実体"],
-        nounParts: ["物", "材料", "実体"]
-      },
-      "方位": {
-        reading: "ほうい",
-        pos: "名詞",
-        definition: "東・西・南・北など、方向を区別するための表し方。",
-        source: "custom",
-        parts: ["東", "西", "南", "北", "方向", "区別"],
-        nounParts: ["東", "西", "南", "北", "方向", "区別"]
-      },
-      "方向": {
-        reading: "ほうこう",
-        pos: "名詞",
-        definition: "ある点から見て、ものがある・進む・向く先の向き。",
-        source: "custom",
-        parts: ["点", "見る", "進む", "向く", "先", "向き"],
-        nounParts: ["点", "先", "向き"]
-      },
-      "向く": {
-        reading: "むく",
-        pos: "動詞",
-        definition: "ある方向に面する。顔・体・物の正面などが、その方向を指す。",
-        source: "custom",
-        parts: ["方向", "面する", "顔", "体", "物", "正面", "指す"],
-        nounParts: ["方向", "顔", "体", "物", "正面"]
-      },
-      "あたる": {
-        reading: "あたる",
-        pos: "動詞",
-        definition: "ある位置・役割・関係に対応する。",
-        source: "custom",
-        parts: ["位置", "役割", "関係", "対応"],
-        nounParts: ["位置", "役割", "関係", "対応"]
-      },
-      "比べる": leaf("くらべる", "動詞", "二つ以上のものを見て、同じ点や違う点を調べる。"),
-      "判断": noun("はんだん", "情報をもとに、どう考えるかを決めること。", ["情報", "考え"]),
-      "出発点": noun("しゅっぱつてん", "考えや行動が始まる地点。", ["考え", "行動", "地点"]),
-      "よりどころ": noun("よりどころ", "考えや行動を支える根拠。", ["考え", "行動", "根拠"]),
-      "意識": noun("いしき", "自分や周囲について気づいている働き。", ["自分", "周囲", "働き"]),
-      "身体": noun("しんたい", "生き物としての体。", ["生き物", "体"]),
-      "考える": leaf("かんがえる", "動詞", "情報を整理し、意味や答えを出そうとする。"),
-      "行動": noun("こうどう", "目的や反応に基づいて何かをすること。", ["目的", "反応"]),
-      "存在": noun("そんざい", "あること。そこにいる、またはあると認められること。", ["こと", "場所", "認識"]),
-      "人間": noun("にんげん", "人という生物・社会的存在。", ["人", "生物", "社会", "存在"]),
-      "性質": noun("せいしつ", "そのものが持つ特徴。", ["特徴"]),
-      "認識": noun("にんしき", "対象を知り、区別し、意味づけること。", ["対象", "区別", "意味"]),
-      "対象": noun("たいしょう", "見たり考えたりする相手となるもの。", ["相手", "物"]),
-      "感覚器官": noun("かんかくきかん", "外界の情報を受け取る体の器官。", ["外界", "情報", "体", "器官"]),
-      "色": noun("いろ", "光の違いとして見分けられる性質。", ["光", "違い", "性質"]),
-      "位置": noun("いち", "あるものが空間や関係の中で占める場所。", ["物", "空間", "関係", "場所"]),
-      "とらえる": leaf("とらえる", "動詞", "対象を認識したり理解したりする。"),
-      "面する": leaf("めんする", "動詞", "ある方向や場所に向かっている。"),
-      "進む": leaf("すすむ", "動詞", "前や目的の方向へ移動する。"),
-      "分ける": leaf("わける", "動詞", "一つのものを複数の部分にする。"),
-      "片側": noun("かたがわ", "二つに分けたうちの一つの側。", ["二つ", "一つ", "側"]),
-      "一定": leaf("いってい", "名詞・形容動詞", "変わらず決まっていること。"),
-      "関係": noun("かんけい", "二つ以上のものの結びつき。", ["二つ", "物", "結びつき"]),
-      "結び付く": leaf("むすびつく", "動詞", "互いに関係をもつ。"),
-      "区別": noun("くべつ", "違いを見つけて分けること。", ["違い"]),
-      "部分": noun("ぶぶん", "全体を構成する一部。", ["全体", "一部"]),
-      "立場": noun("たちば", "ものごとを見る位置や役割。", ["物事", "位置", "役割"]),
-      "地図": noun("ちず", "土地や場所の位置関係を平面に表したもの。", ["土地", "場所", "位置", "関係", "平面"]),
-      "上": noun("うえ", "基準より高い、または画面・紙面で上方にある位置。", ["基準", "画面", "紙面", "上方", "位置"]),
-      "広がり": noun("ひろがり", "空間的・範囲的に広く続いていること。", ["空間", "範囲"]),
-      "動く": leaf("うごく", "動詞", "位置や状態が変わる。"),
-      "ない": leaf("ない", "形容詞", "存在しないこと。"),
-      "あいている": leaf("あいている", "動詞", "中にものがなく、使える状態である。"),
-      "ところ": noun("ところ", "場所・部分・場面を表す語。", ["場所", "部分", "場面", "語"]),
-      "光": noun("ひかり", "目に見える明るさを生じさせるもの。", ["目", "明るさ", "物"]),
-      "受け取る": leaf("うけとる", "動詞", "外から来たものを自分の側に入れる。"),
-      "知る": leaf("しる", "動詞", "情報や事実を理解する。"),
-      "身体器官": noun("しんたいきかん", "身体の中で特定の働きを持つ部分。", ["身体", "働き", "部分"]),
-      "外側": noun("そとがわ", "物の外に面した側。", ["物", "外", "側"]),
-      "輪郭": noun("りんかく", "物の形を示す外まわりの線。", ["物", "形", "外まわり", "線"]),
-      "まとまり": noun("まとまり", "ばらばらでない一つの集まり。", ["一つ", "集まり"]),
-      "姿": noun("すがた", "外から見た形や状態。", ["外", "形", "状態"]),
-      "抽象的": leaf("ちゅうしょうてき", "形容動詞", "具体的な形を離れ、考えとしてまとめられているさま。"),
-      "はっきり": leaf("はっきり", "副詞", "あいまいでなく明確であるさま。"),
-      "内容": noun("ないよう", "中に含まれている意味や事柄。", ["意味", "事柄"]),
-      "大きさ": noun("おおきさ", "物の広がりや量の程度。", ["物", "広がり", "量", "程度"]),
-      "成り立つ": leaf("なりたつ", "動詞", "いくつかの要素によってできている。"),
-      "材料": noun("ざいりょう", "ものを作るもとになるもの。", ["物", "もと"]),
-      "実体": noun("じったい", "考えだけでなく、実際にあるものとしての中身。", ["考え", "物", "中身"]),
-      "西": noun("にし", "方位の一つ。北を上にしたとき左側にあたる方向。", ["方位", "北", "上", "左側", "方向"]),
-      "南": noun("みなみ", "方位の一つ。北の反対側にあたる方向。", ["方位", "北", "反対側", "方向"]),
-      "点": noun("てん", "位置を示す最小単位として考えられるもの。", ["位置", "最小単位", "物"]),
-      "先": noun("さき", "進む方向の前方。", ["方向", "前方"]),
-      "顔": noun("かお", "頭の前面で、目・鼻・口などがある部分。", ["頭", "前面", "目", "鼻", "口", "部分"]),
-      "体": noun("からだ", "人や動物の肉体。", ["人", "動物", "肉体"]),
-      "正面": noun("しょうめん", "ものが前として向いている側。", ["物", "前", "側"]),
-      "指す": leaf("さす", "動詞", "ある方向・場所・対象を示す。"),
-      "役割": noun("やくわり", "そのものが果たす働き。", ["物", "働き"]),
-      "二つ": noun("ふたつ", "数が二であること。", ["数"]),
-      "一つ": noun("ひとつ", "数が一であること。", ["数"]),
-      "情報": noun("じょうほう", "判断や認識の材料になる知らせや内容。", ["判断", "認識", "材料", "内容"]),
-      "考え": noun("かんがえ", "頭の中で組み立てられた判断や内容。", ["頭", "判断", "内容"]),
-      "地点": noun("ちてん", "場所を点として見たもの。", ["場所", "点", "物"]),
-      "根拠": noun("こんきょ", "判断を支える理由や材料。", ["判断", "理由", "材料"]),
-      "自分": noun("じぶん", "その人自身。", ["人"]),
-      "周囲": noun("しゅうい", "あるものを取り巻くまわり。", ["物", "まわり"]),
-      "働き": noun("はたらき", "ものが果たす作用や機能。", ["物", "作用", "機能"]),
-      "生き物": noun("いきもの", "生命を持つ存在。", ["生命", "存在"]),
-      "目的": noun("もくてき", "行動が向かう先として意識されること。", ["行動", "先", "意識"]),
-      "反応": noun("はんのう", "刺激や状況に応じて起こる変化。", ["刺激", "状況", "変化"]),
-      "こと": noun("こと", "出来事・状態・内容などを広く指す語。", ["出来事", "状態", "内容", "語"]),
-      "場所": noun("ばしょ", "物や人が存在する位置や空間。", ["物", "人", "存在", "位置", "空間"]),
-      "生物": noun("せいぶつ", "生命を持つもの。", ["生命", "物"]),
-      "社会": noun("しゃかい", "人々が関係を持ちながら生活する集まり。", ["人", "関係", "生活", "集まり"]),
-      "特徴": noun("とくちょう", "他と区別できる目立つ性質。", ["区別", "性質"]),
-      "意味": noun("いみ", "語や行為が表す内容。", ["語", "行為", "内容"]),
-      "相手": noun("あいて", "関係や行為の向こう側にいる人や物。", ["関係", "行為", "向こう側", "人", "物"]),
-      "外界": noun("がいかい", "自分の外にある世界。", ["自分", "外", "世界"]),
-      "器官": noun("きかん", "身体の中で特定の働きをする部分。", ["身体", "働き", "部分"]),
-      "違い": noun("ちがい", "二つ以上のものが同じでない点。", ["二つ", "物", "点"]),
-      "結びつき": noun("むすびつき", "二つ以上のものが関係している状態。", ["二つ", "物", "関係", "状態"]),
-      "全体": noun("ぜんたい", "部分をすべて含んだまとまり。", ["部分", "まとまり"]),
-      "一部": noun("いちぶ", "全体の中の限られた部分。", ["全体", "部分"]),
-      "物事": noun("ものごと", "物と事柄を広くまとめて指す語。", ["物", "事柄", "語"]),
-      "土地": noun("とち", "地面としての場所。", ["地面", "場所"]),
-      "平面": noun("へいめん", "でこぼこや厚みを考えない面。", ["面"]),
-      "画面": noun("がめん", "映像や情報が表示される面。", ["映像", "情報", "面"]),
-      "紙面": noun("しめん", "紙の上の面。", ["紙", "面"]),
-      "上方": noun("じょうほう", "上の方向。", ["上", "方向"]),
-      "範囲": noun("はんい", "あるものが及ぶ限られた広がり。", ["物", "広がり"]),
-      "場面": noun("ばめん", "出来事が起こっている状況や場所。", ["出来事", "状況", "場所"]),
-      "語": noun("ご", "意味をもつ言葉の単位。", ["意味", "言葉", "単位"]),
-      "明るさ": noun("あかるさ", "光の強さとして感じられる性質。", ["光", "強さ", "性質"]),
-      "外": noun("そと", "ある範囲の外側。", ["範囲", "外側"]),
-      "外まわり": noun("そとまわり", "物の外側に沿った部分。", ["物", "外側", "部分"]),
-      "線": noun("せん", "長さがあり幅をほとんど考えない形。", ["長さ", "幅", "形"]),
-      "集まり": noun("あつまり", "複数のものが一か所にまとまったもの。", ["複数", "場所", "物"]),
-      "状態": noun("じょうたい", "ある時点でのもののありさま。", ["時点", "物", "ありさま"]),
-      "事柄": noun("ことがら", "考えたり述べたりする内容。", ["考え", "内容"]),
-      "量": noun("りょう", "多さや大きさとして測られるもの。", ["多さ", "大きさ", "物"]),
-      "程度": noun("ていど", "性質や量の大きさの度合い。", ["性質", "量", "大きさ"]),
-      "もと": noun("もと", "物事が生じる根本。", ["物事", "根本"]),
-      "中身": noun("なかみ", "外側に対して内側に含まれる内容。", ["外側", "内側", "内容"]),
-      "反対側": noun("はんたいがわ", "基準をはさんで逆にある側。", ["基準", "逆", "側"]),
-      "左側": noun("ひだりがわ", "基準から見て左にあたる側。", ["基準", "左", "側"]),
-      "最小単位": noun("さいしょうたんい", "それ以上細かく分けにくい単位。", ["単位"]),
-      "前方": noun("ぜんぽう", "前の方向。", ["前", "方向"]),
-      "頭": noun("あたま", "体の上部にある部分。", ["体", "上部", "部分"]),
-      "前面": noun("ぜんめん", "前に向いた面。", ["前", "面"]),
-      "鼻": noun("はな", "顔にあり、においや呼吸に関わる器官。", ["顔", "器官"]),
-      "口": noun("くち", "顔にあり、食べることや話すことに関わる部分。", ["顔", "部分"]),
-      "動物": noun("どうぶつ", "自ら動き、感覚をもつ生物。", ["感覚", "生物"]),
-      "肉体": noun("にくたい", "精神に対する身体としての体。", ["身体", "体"]),
-      "前": noun("まえ", "基準となる向きの先の側。", ["基準", "向き", "先", "側"]),
-      "数": noun("かず", "ものの個数や量を表す概念。", ["物", "個数", "量", "概念"])
+      "右": e("みぎ", "名詞", "基準となる人や物から見て、一定の向きを定めたときに一方に対応する側であり、人が北を向く場合には東にあたる側", ["基準", "人", "物", "見る", "一定", "向き", "一方", "対応", "側", "北", "向く", "東"]),
+      "基準": e("きじゅん", "名詞", "比べたり判断したりするときの出発点やよりどころ", ["比べる", "判断", "出発点", "よりどころ"]),
+      "比べる": e("くらべる", "動詞", "二つ以上のものを見て、同じ点や違う点を調べること", ["二つ", "物", "見る", "同じ点", "違う点"]),
+      "判断": e("はんだん", "名詞", "情報をもとに、どう考えるかを決めること", ["情報", "考える"]),
+      "出発点": e("しゅっぱつてん", "名詞", "考えや行動が始まる地点", ["考え", "行動", "地点"]),
+      "よりどころ": e("よりどころ", "名詞", "考えや行動を支える根拠", ["考え", "行動", "根拠"]),
+      "人": e("ひと", "名詞", "意識や身体をもち、考えたり行動したりする存在としての人間", ["意識", "身体", "考える", "行動", "存在", "人間"]),
+      "物": e("もの", "名詞", "形や性質をもち、認識の対象になる存在", ["形", "性質", "認識", "対象", "存在"]),
+      "見る": e("みる", "動詞", "目などの感覚器官によって、対象の形や色や位置などをとらえること", ["目", "感覚器官", "対象", "形", "色", "位置"]),
+      "一定": e("いってい", "名詞・形容動詞", "変わらず決まっていること", ["変化", "決定"]),
+      "向き": e("むき", "名詞", "あるものが面している方向または進む方向や見る方向", ["物", "面", "方向", "進む", "見る"]),
+      "一方": e("いっぽう", "名詞", "二つ以上に分けたもののうちの片側または一つの側", ["二つ", "分ける", "片側", "一つ", "側"]),
+      "対応": e("たいおう", "名詞", "二つのものが一定の関係によって結び付いていること", ["二つ", "物", "一定", "関係", "結びつき"]),
+      "側": e("がわ", "名詞", "あるものを基準にしたときに区別される一方の部分や方向や立場", ["物", "基準", "区別", "一方", "部分", "方向", "立場"]),
+      "北": e("きた", "名詞", "方位の一つであり、地図ではふつう上に置かれる方向", ["方位", "一つ", "地図", "上", "方向"]),
+      "東": e("ひがし", "名詞", "方位の一つであり、北を上にしたとき右側にあたる方向", ["方位", "一つ", "北", "上", "右", "側", "方向"]),
+      "向く": e("むく", "動詞", "ある方向に面し、顔や体や物の正面がその方向を指すこと", ["方向", "面", "顔", "体", "物", "正面"]),
+      "空間": e("くうかん", "名詞", "物が存在したり動いたりできる広がりであり、物がない場合にはあいているところとして感じられるもの", ["物", "存在", "動く", "広がり", "ところ"]),
+      "二分": e("にぶん", "名詞", "一つのものを二つに分けること", ["一つ", "物", "二つ", "分ける"]),
+
+      "二つ": e("ふたつ", "名詞", "数が二であること", ["数"]),
+      "一つ": e("ひとつ", "名詞", "数が一であること", ["数"]),
+      "数": e("かず", "名詞", "ものの個数や量を表す概念", ["物", "個数", "量", "概念"]),
+      "同じ点": e("おなじてん", "名詞", "二つ以上のものに共通して見られる部分", ["二つ", "物", "共通", "部分"]),
+      "違う点": e("ちがうてん", "名詞", "二つ以上のものが同じでない部分", ["二つ", "物", "部分"]),
+      "情報": e("じょうほう", "名詞", "判断や認識の材料になる知らせや内容", ["判断", "認識", "材料", "内容"]),
+      "考える": e("かんがえる", "動詞", "情報を整理し、意味や答えを出そうとすること", ["情報", "意味", "答え"]),
+      "考え": e("かんがえ", "名詞", "頭の中で組み立てられた判断や内容", ["頭", "判断", "内容"]),
+      "行動": e("こうどう", "名詞", "目的や反応に基づいて何かをすること", ["目的", "反応"]),
+      "地点": e("ちてん", "名詞", "場所を点として見たもの", ["場所", "点", "物"]),
+      "根拠": e("こんきょ", "名詞", "判断や行動を支える理由や材料", ["判断", "行動", "理由", "材料"]),
+      "意識": e("いしき", "名詞", "自分や周囲について気づいている働き", ["自分", "周囲", "働き"]),
+      "身体": e("しんたい", "名詞", "生き物としての体", ["生き物", "体"]),
+      "存在": e("そんざい", "名詞", "あること、そこにいること、またはあると認められること", ["こと", "場所", "認識"]),
+      "人間": e("にんげん", "名詞", "人という生物であり社会的な存在", ["人", "生物", "社会", "存在"]),
+      "形": e("かたち", "名詞", "物の外側の輪郭やまとまりとしてとらえられる姿", ["物", "外側", "輪郭", "まとまり", "姿"]),
+      "性質": e("せいしつ", "名詞", "そのものが持つ特徴", ["特徴"]),
+      "認識": e("にんしき", "名詞", "対象を知り、区別し、意味づけること", ["対象", "区別", "意味"]),
+      "対象": e("たいしょう", "名詞", "見たり考えたりする相手となるもの", ["相手", "物"]),
+      "目": e("め", "名詞", "光を受け取り、形や色などを知るための身体器官", ["光", "形", "色", "身体器官"]),
+      "感覚器官": e("かんかくきかん", "名詞", "外界の情報を受け取る体の器官", ["外界", "情報", "体", "器官"]),
+      "色": e("いろ", "名詞", "光の違いとして見分けられる性質", ["光", "違い", "性質"]),
+      "位置": e("いち", "名詞", "あるものが空間や関係の中で占める場所", ["物", "空間", "関係", "場所"]),
+      "方向": e("ほうこう", "名詞", "ある点から見て、ものがある先や進む先や向く先の向き", ["点", "物", "先", "向き"]),
+      "方位": e("ほうい", "名詞", "東西南北などの方向を区別するための表し方", ["東", "西", "南", "北", "方向", "区別"]),
+      "部分": e("ぶぶん", "名詞", "全体を構成する一部", ["全体", "一部"]),
+      "立場": e("たちば", "名詞", "ものごとを見る位置や役割", ["物事", "位置", "役割"]),
+      "区別": e("くべつ", "名詞", "違いを見つけて分けること", ["違い"]),
+      "片側": e("かたがわ", "名詞", "二つに分けたうちの一つの側", ["二つ", "一つ", "側"]),
+      "関係": e("かんけい", "名詞", "二つ以上のものの結びつき", ["二つ", "物", "結びつき"]),
+      "結びつき": e("むすびつき", "名詞", "二つ以上のものが関係している状態", ["二つ", "物", "関係", "状態"]),
+      "地図": e("ちず", "名詞", "土地や場所の位置関係を平面に表したもの", ["土地", "場所", "位置", "関係", "平面"]),
+      "上": e("うえ", "名詞", "基準より高い、または画面や紙面で上方にある位置", ["基準", "画面", "紙面", "上方", "位置"]),
+      "面": e("めん", "名詞", "物の広がった表側や平らな部分", ["物", "表側", "部分"]),
+      "顔": e("かお", "名詞", "頭の前面で目や鼻や口などがある部分", ["頭", "前面", "目", "鼻", "口", "部分"]),
+      "体": e("からだ", "名詞", "人や動物の肉体", ["人", "動物", "肉体"]),
+      "正面": e("しょうめん", "名詞", "ものが前として向いている側", ["物", "前", "側"]),
+      "広がり": e("ひろがり", "名詞", "空間的または範囲的に広く続いていること", ["空間", "範囲"]),
+      "ところ": e("ところ", "名詞", "場所、部分、場面を表す語", ["場所", "部分", "場面", "語"]),
+
+      "目的": e("もくてき", "名詞", "行動が向かう先として意識されること", ["行動", "先", "意識"]),
+      "反応": e("はんのう", "名詞", "刺激や状況に応じて起こる変化", ["刺激", "状況", "変化"]),
+      "自分": e("じぶん", "名詞", "その人自身", ["人"]),
+      "周囲": e("しゅうい", "名詞", "あるものを取り巻くまわり", ["物", "まわり"]),
+      "働き": e("はたらき", "名詞", "ものが果たす作用や機能", ["物", "作用", "機能"]),
+      "生き物": e("いきもの", "名詞", "生命を持つ存在", ["生命", "存在"]),
+      "生物": e("せいぶつ", "名詞", "生命を持つもの", ["生命", "物"]),
+      "社会": e("しゃかい", "名詞", "人々が関係を持ちながら生活する集まり", ["人", "関係", "生活", "集まり"]),
+      "外側": e("そとがわ", "名詞", "物の外に面した側", ["物", "外", "面", "側"]),
+      "輪郭": e("りんかく", "名詞", "物の形を示す外まわりの線", ["物", "形", "外まわり", "線"]),
+      "まとまり": e("まとまり", "名詞", "ばらばらでない一つの集まり", ["一つ", "集まり"]),
+      "姿": e("すがた", "名詞", "外から見た形や状態", ["外", "形", "状態"]),
+      "特徴": e("とくちょう", "名詞", "他と区別できる目立つ性質", ["区別", "性質"]),
+      "材料": e("ざいりょう", "名詞", "ものを作るもとになるもの", ["物", "もと"]),
+      "内容": e("ないよう", "名詞", "中に含まれている意味や事柄", ["意味", "事柄"]),
+      "意味": e("いみ", "名詞", "語や行為が表す内容", ["語", "行為", "内容"]),
+      "答え": e("こたえ", "名詞", "問いに対して示される内容", ["問い", "内容"]),
+      "頭": e("あたま", "名詞", "体の上部にある部分", ["体", "上部", "部分"]),
+      "理由": e("りゆう", "名詞", "判断や行動の根拠になる事柄", ["判断", "行動", "根拠", "事柄"]),
+      "場所": e("ばしょ", "名詞", "物や人が存在する位置や空間", ["物", "人", "存在", "位置", "空間"]),
+      "点": e("てん", "名詞", "位置を示す最小単位として考えられるもの", ["位置", "最小単位", "物"]),
+      "こと": e("こと", "名詞", "出来事や状態や内容などを広く指す語", ["出来事", "状態", "内容", "語"]),
+      "外界": e("がいかい", "名詞", "自分の外にある世界", ["自分", "外", "世界"]),
+      "器官": e("きかん", "名詞", "身体の中で特定の働きをする部分", ["身体", "働き", "部分"]),
+      "違い": e("ちがい", "名詞", "二つ以上のものが同じでない点", ["二つ", "物", "点"]),
+      "全体": e("ぜんたい", "名詞", "部分をすべて含んだまとまり", ["部分", "まとまり"]),
+      "一部": e("いちぶ", "名詞", "全体の中の限られた部分", ["全体", "部分"]),
+      "物事": e("ものごと", "名詞", "物と事柄を広くまとめて指す語", ["物", "事柄", "語"]),
+      "役割": e("やくわり", "名詞", "そのものが果たす働き", ["物", "働き"]),
+      "土地": e("とち", "名詞", "地面としての場所", ["地面", "場所"]),
+      "平面": e("へいめん", "名詞", "厚みを考えない面", ["面"]),
+      "画面": e("がめん", "名詞", "映像や情報が表示される面", ["映像", "情報", "面"]),
+      "紙面": e("しめん", "名詞", "紙の上の面", ["紙", "面"]),
+      "上方": e("じょうほう", "名詞", "上の方向", ["上", "方向"]),
+      "先": e("さき", "名詞", "進む方向の前方", ["方向", "前方"]),
+      "範囲": e("はんい", "名詞", "あるものが及ぶ限られた広がり", ["物", "広がり"]),
+      "場面": e("ばめん", "名詞", "出来事が起こっている状況や場所", ["出来事", "状況", "場所"]),
+      "語": e("ご", "名詞", "意味をもつ言葉の単位", ["意味", "言葉", "単位"]),
+      "前面": e("ぜんめん", "名詞", "前に向いた面", ["前", "面"]),
+      "鼻": e("はな", "名詞", "顔にあり、においや呼吸に関わる器官", ["顔", "器官"]),
+      "口": e("くち", "名詞", "顔にあり、食べることや話すことに関わる部分", ["顔", "部分"]),
+      "動物": e("どうぶつ", "名詞", "自ら動き、感覚をもつ生物", ["感覚", "生物"]),
+      "肉体": e("にくたい", "名詞", "精神に対する身体としての体", ["身体", "体"]),
+      "前": e("まえ", "名詞", "基準となる向きの先の側", ["基準", "向き", "先", "側"]),
+      "西": e("にし", "名詞", "方位の一つであり、北を上にしたとき左側にあたる方向", ["方位", "一つ", "北", "上", "左側", "方向"]),
+      "南": e("みなみ", "名詞", "方位の一つであり、北の反対側にあたる方向", ["方位", "一つ", "北", "反対側", "方向"])
     };
 
-    function leaf(reading, pos, definition) {
-      return { reading, pos, definition, source: "custom", parts: [], nounParts: [] };
+    function e(reading, pos, definition, parts = []) {
+      return { reading, pos, definition, parts };
     }
 
-    function noun(reading, definition, nounParts = []) {
-      return { reading, pos: "名詞", definition, source: "custom", parts: nounParts, nounParts };
-    }
+    const aliases = {
+      "比べたり": "比べる",
+      "比べる": "比べる",
+      "考えたり": "考える",
+      "考える": "考える",
+      "行動したり": "行動",
+      "見て": "見る",
+      "見る": "見る",
+      "見た": "見る",
+      "向く": "向く",
+      "向いて": "向く",
+      "あたる": "対応",
+      "当たる": "対応",
+      "側": "側"
+    };
 
     const particles = new Set(["が", "を", "に", "で", "と", "へ", "は", "も", "の", "や", "か", "ば", "て", "いれ", "いれば", "たら", "なら"]);
-    const aliases = {
-      "向い": "向く",
-      "向いて": "向く",
-      "見える": "見る",
-      "見た": "見る",
-      "当たる": "あたる",
-      "あたる": "あたる",
-      "側": "側",
-      "ところ": "ところ"
-    };
-
-    const words = Object.keys(dictionary).sort((a, b) => b.length - a.length);
+    const matchKeys = [...new Set([...Object.keys(dictionary), ...Object.keys(aliases)])].sort((a, b) => b.length - a.length);
 
     function normalizeWord(word) {
       return aliases[word] || word;
     }
 
-    function sanitizeDefinition(text) {
+    function sanitizeText(text) {
       return String(text)
-        .replace(/[。．.]+/g, "")
+        .replace(/[。．.]/g, "")
         .replace(/\s+/g, "")
         .replace(/、+/g, "、")
-        .replace(/であること$/g, "であるということ")
         .trim();
     }
 
@@ -754,14 +570,73 @@
       }[m]));
     }
 
-    function isNoun(entry) {
-      return Boolean(entry && entry.pos && entry.pos.includes("名詞"));
+    function canExpand(lemma, allowVerbs) {
+      const entry = dictionary[lemma];
+      if (!entry) return false;
+      if (allowVerbs) return true;
+      return entry.pos.includes("名詞");
     }
 
-    function getExpandableParts(entry, nounOnly) {
-      const rawParts = nounOnly ? (entry.nounParts || entry.parts || []) : (entry.parts || []);
-      if (!nounOnly) return rawParts;
-      return rawParts.filter(part => isNoun(dictionary[normalizeWord(part)]));
+    function expandWord(word, depth, path, options) {
+      const lemma = normalizeWord(word);
+      const entry = dictionary[lemma];
+
+      if (!entry) return word;
+      if (path.includes(lemma)) return lemma;
+      if (depth <= 0) return sanitizeText(entry.definition);
+
+      const nextPath = [...path, lemma];
+      return expandDefinition(entry.definition, depth - 1, nextPath, options);
+    }
+
+    function expandDefinition(text, depth, path, options) {
+      const source = sanitizeText(text);
+      let out = "";
+      let i = 0;
+
+      while (i < source.length) {
+        let matched = "";
+        let lemma = "";
+
+        for (const key of matchKeys) {
+          if (!source.startsWith(key, i)) continue;
+          const n = normalizeWord(key);
+          if (!dictionary[n]) continue;
+          if (path.includes(n)) continue;
+          if (!canExpand(n, options.allowVerbs)) continue;
+          matched = key;
+          lemma = n;
+          break;
+        }
+
+        if (matched) {
+          const expanded = expandWord(lemma, depth, path, options);
+          out += expanded;
+          i += matched.length;
+        } else {
+          out += source[i];
+          i += 1;
+        }
+      }
+
+      return cleanup(out);
+    }
+
+    function cleanup(text) {
+      return String(text)
+        .replace(/[。．.]/g, "")
+        .replace(/\s+/g, "")
+        .replace(/、+/g, "、")
+        .replace(/ことこと/g, "こと")
+        .replace(/ものもの/g, "もの")
+        .replace(/としてのとしての/g, "としての")
+        .replace(/でありであり/g, "であり")
+        .replace(/やや/g, "や")
+        .replace(/のの/g, "の")
+        .replace(/をを/g, "を")
+        .replace(/にに/g, "に")
+        .replace(/がが/g, "が")
+        .trim();
     }
 
     function tokenize(text) {
@@ -773,9 +648,9 @@
         const rest = cleaned.slice(i);
         let matched = "";
 
-        for (const w of words) {
-          if (rest.startsWith(w)) {
-            matched = w;
+        for (const key of matchKeys) {
+          if (rest.startsWith(key)) {
+            matched = key;
             break;
           }
         }
@@ -789,104 +664,57 @@
             entry: dictionary[lemma] || null
           });
           i += matched.length;
-          continue;
+        } else {
+          const ch = cleaned[i];
+          result.push({
+            surface: ch,
+            lemma: ch,
+            known: Boolean(dictionary[ch]),
+            entry: dictionary[ch] || null,
+            isParticle: particles.has(ch)
+          });
+          i += 1;
         }
-
-        const ch = cleaned[i];
-        result.push({
-          surface: ch,
-          lemma: ch,
-          known: Boolean(dictionary[ch]),
-          entry: dictionary[ch] || null,
-          isParticle: particles.has(ch)
-        });
-        i += 1;
       }
 
       return result;
     }
 
-    function buildInfiniteNounParaphrase(root, depth, options, path = []) {
-      const lemma = normalizeWord(root);
-      const entry = dictionary[lemma];
+    function buildOutput(input, depth) {
+      const options = {
+        inlineMode: document.getElementById("inlineMode").checked,
+        oneSentence: document.getElementById("oneSentence").checked,
+        allowVerbs: document.getElementById("allowVerbs").checked
+      };
 
-      if (!entry) {
-        return `「${lemma}」は未登録語である`;
-      }
+      const raw = input.trim() || "未入力";
+      const lemma = normalizeWord(raw);
 
-      const cleanDef = sanitizeDefinition(entry.definition);
-      const parts = getExpandableParts(entry, options.nounOnly)
-        .map(normalizeWord)
-        .filter(part => dictionary[part]);
-
-      const looped = path.includes(lemma);
-      if (looped) {
-        return options.showLoop
-          ? `「${lemma}」はすでにこの言い換えの中で使われた語であるため、意味の循環を避けるためにここで停止される語である`
-          : `「${lemma}」は循環停止語である`;
-      }
-
-      if (depth <= 0 || parts.length === 0) {
-        return `「${lemma}」とは${cleanDef}という${entry.pos}である`;
-      }
-
-      const nextPath = [...path, lemma];
-      const expandedParts = parts
-        .slice(0, options.branchLimit)
-        .map(part => buildInfiniteNounParaphrase(part, depth - 1, options, nextPath));
-
-      return `「${lemma}」とは${cleanDef}という${entry.pos}であり、その意味は${expandedParts.join("であり、また")}という語群へ言い換えられる語である`;
-    }
-
-    function buildVeryLongOneSentence(input, depth) {
-      const nounOnly = document.getElementById("nounOnly").checked;
-      const oneSentence = document.getElementById("oneSentence").checked;
-      const showLoop = document.getElementById("showLoop").checked;
-
-      const normalized = normalizeWord(input.trim());
       let roots = [];
-
-      if (dictionary[normalized]) {
-        roots = [normalized];
+      if (dictionary[lemma]) {
+        roots = [lemma];
       } else {
-        roots = tokenize(input)
+        roots = tokenize(raw)
           .filter(t => t.known && !particles.has(t.surface))
           .map(t => t.lemma);
       }
-
       roots = [...new Set(roots)];
 
       if (!roots.length) {
-        const safeInput = input.trim() || "未入力";
-        const fallback = `${safeInput}とは、現在の簡易辞書にはまだ登録されていないため、名詞を名詞で言い換え、その名詞をさらに別の名詞で言い換え続ける擬似∞処理の出発点にすることはできないが、今後この語に読み、品詞、中核的な語義、下位名詞、下位名詞のさらに下位名詞を登録すれば、語の意味が名詞の連鎖として長く展開される対象である`;
-        return oneSentence ? fallback.replace(/[。．.]/g, "") + "。" : fallback + "。";
+        const fallback = `${raw}とは、現在の簡易辞書にはまだ登録されていないため、定義文の中の語をさらに定義文で置き換える処理の対象にできない語`;
+        return options.oneSentence ? fallback + "。" : fallback + "。";
       }
 
-      const options = {
-        nounOnly,
-        showLoop,
-        branchLimit: Math.max(2, Math.min(8, 2 + Math.floor(depth / 2)))
-      };
+      const body = roots.map(root => {
+        const entry = dictionary[root];
+        const expanded = options.inlineMode
+          ? expandDefinition(entry.definition, depth, [root], options)
+          : entry.definition;
+        return `${root}とは、${expanded}`;
+      }).join("であり、また");
 
-      const rootLabels = roots.map(root => `${root}（${dictionary[root].reading}）`).join("および");
-      const body = roots
-        .map(root => buildInfiniteNounParaphrase(root, depth, options))
-        .join("であり、さらに");
-
-      const modeText = nounOnly
-        ? "名詞を名詞で言い換え、その名詞をさらに名詞で言い換え続ける擬似∞展開"
-        : "品詞を限定せずに語を語で言い換え続ける擬似∞展開";
-
-      let finalText = `${rootLabels}を${modeText}として説明すると、${body}ということになる`;
-
-      finalText = finalText
-        .replace(/[。．.]/g, "")
-        .replace(/\s+/g, "")
-        .replace(/、+/g, "、")
-        .replace(/であり、またであり/g, "であり、また")
-        .replace(/という語群へ言い換えられる語であるという語群/g, "という語群");
-
-      return oneSentence ? finalText + "。" : finalText + "。";
+      const finalText = cleanup(body);
+      return options.oneSentence ? finalText + "。" : finalText + "。";
     }
 
     function renderEntry(word) {
@@ -897,12 +725,11 @@
         return `
           <div class="empty">
             <strong>${escapeHtml(word || "未入力")}</strong> は、まだ見出し語として直接登録されていません。<br>
-            文章内に既知語があれば、それを拾って擬似∞言い換えします。
+            文章内に既知語があれば、それを拾って展開します。
           </div>
         `;
       }
 
-      const nounParts = getExpandableParts(entry, true);
       return `
         <div class="entry-head">
           <span class="lemma">${escapeHtml(lemma)}</span>
@@ -911,7 +738,7 @@
         </div>
         <div class="definition">${escapeHtml(entry.definition)}</div>
         <div class="meta">
-          source: ${escapeHtml(entry.source)} / 下位名詞: ${nounParts.length ? nounParts.map(escapeHtml).join("、") : "なし"}
+          下位語: ${entry.parts.length ? entry.parts.map(escapeHtml).join("、") : "なし"}
         </div>
       `;
     }
@@ -950,7 +777,7 @@
       document.getElementById("entryView").innerHTML = renderEntry(firstKnown ? firstKnown.lemma : input);
       document.getElementById("tokensView").innerHTML = renderTokens(tokens);
 
-      const output = buildVeryLongOneSentence(input, depth);
+      const output = buildOutput(input, depth);
       const outputEl = document.getElementById("longOutput");
       outputEl.value = output;
       document.getElementById("textCounter").textContent = `${output.length}字`;
@@ -987,9 +814,9 @@
       if (e.key === "Enter") analyze();
     });
     document.getElementById("depth").addEventListener("input", analyze);
-    document.getElementById("nounOnly").addEventListener("change", analyze);
+    document.getElementById("inlineMode").addEventListener("change", analyze);
     document.getElementById("oneSentence").addEventListener("change", analyze);
-    document.getElementById("showLoop").addEventListener("change", analyze);
+    document.getElementById("allowVerbs").addEventListener("change", analyze);
 
     analyze();
   </script>
